@@ -10,5 +10,6 @@ bundles
 *.DS_Store
 .eggs
 dist
+docs/html
 **/*.egg-info
 .vscode

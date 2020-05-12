@@ -112,7 +112,7 @@ class Rate(CV):
 
 Rate.add_values(
     (
-        ("RATE_SHUTDOWN", 0, 0, None),
+        ("SHUTDOWN", 0, 0, None),
         ("RATE_50_HZ", 0x4, 50, None),
         ("RATE_100_HZ", 0x5, 100, None),
         ("RATE_400_HZ", 0x6, 400, None),
@@ -153,7 +153,9 @@ class LIS331:
     """
 
     _chip_id = ROUnaryStruct(_LIS331_REG_WHOAMI, "<B")
-    _mode_and_odr = RWBits(5, _LIS331_REG_CTRL1, 3)
+    _mode_and_odr_bits = RWBits(5, _LIS331_REG_CTRL1, 3)
+    _power_mode_bits = RWBits(3, _LIS331_REG_CTRL1, 5)
+    _data_rate_lpf_bits = RWBits(2, _LIS331_REG_CTRL1, 3)
     CHIP_ID = None
 
     def __init__(self, i2c_bus, address=_LIS331_DEFAULT_ADDRESS):
@@ -169,19 +171,38 @@ class LIS331:
     @property
     def data_rate(self):
         """Select the rate at which the accelerometer takes measurements. Must be a `Rate`"""
-        return 1
+        # because both the power mode[pm] and data rate[dr] bits determine the data rate
+        # we'll report the whole bunch
+        return self._mode_and_odr_bits
 
     @data_rate.setter
-    def data_rate(self, value):
-        self._mode_and_odr = value
+    def data_rate(self, new_rate_bits):
+        # similarly we'll receive the whole group of pm/dr bits to determine what needs to be set
+        new_mode_bits, new_dr_bits = self._mode_and_rate(new_rate_bits)
+        # FIXME
+        print(
+            "new mode is ",
+            Mode.string[new_mode_bits],
+            "PM bits:",
+            bin(new_mode_bits),
+            "DR bits:",
+            bin(new_dr_bits),
+        )
+        if new_mode_bits == Mode.NORMAL:  # pylint: disable=no-member
 
-    def _mode(self, data_rate):
+            print("mode is normal, setting all 5 bits")
+            self._mode_and_odr_bits = new_rate_bits
+            return
+        print("mode is shutdown or low power, only setting PM bits")
+        self._power_mode_bits = new_mode_bits
+
+    def _mode_and_rate(self, data_rate):
         # pylint: disable=no-member
         pm_value = (data_rate & 0x1C) >> 2
         if pm_value >= Mode.LOW_POWER:
-            return Mode.LOW_POWER
+            return (Mode.LOW_POWER, 0)
 
-        return pm_value
+        return (pm_value, 0)
 
     _raw_acceleration = ROByteArray(6, (_LIS331_REG_OUT_X_L | 0x80), "<hhh")
 
@@ -198,7 +219,7 @@ class LIS331:
         )
 
     def _scale_acceleration(self, value):
-        # The measurements are 12 bits left justified to preserve the sign
+        # The measurements are 12 bits left justified to preserve the sign bit
         right_justified = value >> 4
         return right_justified * LIS331HHRange.lsb[self._cached_accel_range]
 
