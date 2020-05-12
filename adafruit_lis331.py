@@ -94,7 +94,7 @@ class CV:
 
 
 class LIS331HHRange(CV):
-    """Options for ``accelerometer_range``"""
+    """Options for ``range``"""
 
 
 LIS331HHRange.add_values(
@@ -156,6 +156,7 @@ class LIS331:
     _mode_and_odr_bits = RWBits(5, _LIS331_REG_CTRL1, 3)
     _power_mode_bits = RWBits(3, _LIS331_REG_CTRL1, 5)
     _data_rate_lpf_bits = RWBits(2, _LIS331_REG_CTRL1, 3)
+    _range_bits = RWBits(2, _LIS331_REG_CTRL4, 4)
     CHIP_ID = None
 
     def __init__(self, i2c_bus, address=_LIS331_DEFAULT_ADDRESS):
@@ -164,9 +165,9 @@ class LIS331:
             raise RuntimeError(
                 "Failed to find %s - check your wiring!" % self.__class__.__name__
             )
-
-        self.data_rate = Rate.RATE_1000_HZ  # pylint: disable=no-member
-        self._cached_accel_range = LIS331HHRange.RANGE_6G  # pylint: disable=no-member
+        # pylint: disable=no-member
+        self.data_rate = Rate.RATE_1000_HZ
+        self.range = LIS331HHRange.RANGE_24G
 
     @property
     def data_rate(self):
@@ -198,13 +199,29 @@ class LIS331:
         print("mode is shutdown or low power, only setting PM bits")
         self._power_mode_bits = new_mode_bits
 
-    def _mode_and_rate(self, data_rate):
+    @staticmethod
+    def _mode_and_rate(data_rate):
         # pylint: disable=no-member
         pm_value = (data_rate & 0x1C) >> 2
         if pm_value >= Mode.LOW_POWER:
             return (Mode.LOW_POWER, 0)
 
         return (pm_value, 0)
+
+    # FIXME - Range needs to work for both Sensors
+    @property
+    def range(self):
+        """Adjusts the range of values that the sensor can measure, from +/- 6g to +/-
+        24g Note that larger ranges will be less accurate. Must be an `LIS331HHRange`"""
+        return self._range_bits
+
+    @range.setter
+    def range(self, new_range):
+        if not LIS331HHRange.is_valid(new_range):  # pylint: disable=no-member
+            raise AttributeError("range must be a `Range`")
+        print("New range: +/-%sg" % LIS331HHRange.string[new_range])
+        self._range_bits = new_range
+        self._cached_accel_range = new_range
 
     _raw_acceleration = ROByteArray(6, (_LIS331_REG_OUT_X_L | 0x80), "<hhh")
 
