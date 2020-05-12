@@ -177,6 +177,8 @@ class LIS331:
 
     @data_rate.setter
     def data_rate(self, new_rate_bits):
+        if not Rate.is_valid(new_rate_bits):
+            raise AttributeError("range must be a `Range`")
         # similarly we'll receive the whole group of pm/dr bits to determine what needs to be set
         new_mode_bits, new_dr_bits = self._mode_and_rate(new_rate_bits)
         # FIXME
