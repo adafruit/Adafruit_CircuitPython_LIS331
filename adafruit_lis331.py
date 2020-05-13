@@ -49,6 +49,7 @@ __version__ = "0.0.0-auto.0"
 __repo__ = "https://github.com/adafruit/Adafruit_CircuitPython_LIS331.git"
 
 from struct import unpack_from
+from time import sleep
 from adafruit_register.i2c_bits import RWBits
 from adafruit_register.i2c_struct import ROUnaryStruct
 import adafruit_bus_device.i2c_device as i2c_device
@@ -219,19 +220,11 @@ class LIS331:
             raise RuntimeError(
                 "Base class LIS331 cannot be instantiated directly. Use LIS331HH or H3LIS331"
             )
-
         self.i2c_device = i2c_device.I2CDevice(i2c_bus, address)
         if self._chip_id != _LIS331_CHIP_ID:
             raise RuntimeError(
                 "Failed to find %s - check your wiring!" % self.__class__.__name__
             )
-
-        # pylint: disable=no-member
-        self._range_class = LIS331HHRange
-        self.data_rate = Rate.RATE_1000_HZ
-        self.range = 3  # highest range for either sensor
-        self._cached_mode = None
-        self._cached_data_rate = None
 
     @property
     def lpf_cutoff(self):
@@ -265,11 +258,17 @@ class LIS331:
     def data_rate(self, new_rate_bits):
         if not Rate.is_valid(new_rate_bits):
             raise AttributeError("data_rate must be a `Rate`")
-        # similarly we'll receive the whole group of pm/dr bits to determine what needs to be set
-        new_mode, new_rate_bits = self._mode_and_rate(new_rate_bits)
+        # similar to `data_rate` we'll receive the whole group of pm/dr bits to determine what needs to be set
+        # print("(entry)new_rate_bits", bin(new_rate_bits))
+        new_mode, adjusted_rate_bits = self._mode_and_rate(new_rate_bits)
+        # print("new mode:", bin(new_mode), "adjusted_rate_bits:", bin(adjusted_rate_bits))
         if new_mode == Mode.NORMAL:  # pylint: disable=no-member
+            # print("Mode is NORMAL")
+            # print("setting self._mode_and_odr_bits to new_rate_bits", bin(new_rate_bits))
             self._mode_and_odr_bits = new_rate_bits
         else:
+            # print("Mode is ", Mode.string[new_mode], "and not NORMAL")
+            # print("setting self._power_mode_bits to new_mode", bin(new_mode))
             self._power_mode_bits = new_mode
 
         self._cached_data_rate = new_mode << 2 | new_rate_bits
@@ -305,6 +304,7 @@ class LIS331:
             )
         self._range_bits = new_range
         self._cached_accel_range = new_range
+        sleep(0.010) # give time for the new rate to settle
 
     _raw_acceleration = ROByteArray((_LIS331_REG_OUT_X_L | 0x80), "<hhh", 6)
 
@@ -324,7 +324,7 @@ class LIS331:
         # The measurements are 12 bits left justified to preserve the sign bit
         right_justified = value >> 4
         lsb_value = self._range_class.lsb[self._cached_accel_range]
-
+        # print("v:", value, "cr:", self._cached_accel_range, "l:", lsb_value)
         return right_justified * lsb_value
 
 
@@ -339,7 +339,8 @@ class LIS331HH(LIS331):
     def __init__(self, i2c_bus, address=_LIS331_DEFAULT_ADDRESS):
         super().__init__(i2c_bus, address)
         self._range_class = LIS331HHRange
-
+        self.data_rate = Rate.RATE_1000_HZ
+        self.range = LIS331HHRange.RANGE_24G
 
 class H3LIS331(LIS331):
     """Driver for the H3LIS331 3-axis high-g accelerometer.
@@ -352,3 +353,5 @@ class H3LIS331(LIS331):
     def __init__(self, i2c_bus, address=_LIS331_DEFAULT_ADDRESS):
         super().__init__(i2c_bus, address)
         self._range_class = H3LIS331Range
+        self.data_rate = Rate.RATE_1000_HZ
+        self.range = H3LIS331Range.RANGE_400G
