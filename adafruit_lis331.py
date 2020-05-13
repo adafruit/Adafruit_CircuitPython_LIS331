@@ -45,16 +45,12 @@ Implementation Notes
  * Adafruit's Register library: https://github.com/adafruit/Adafruit_CircuitPython_Register
 """
 
-# imports
-
 __version__ = "0.0.0-auto.0"
 __repo__ = "https://github.com/adafruit/Adafruit_CircuitPython_LIS331.git"
 
-# from time import sleep
-from adafruit_register.i2c_struct import ROUnaryStruct  # , Struct
-
-from adafruit_register.i2c_bits import RWBits
 from struct import unpack_from
+from adafruit_register.i2c_bits import RWBits
+from adafruit_register.i2c_struct import ROUnaryStruct
 import adafruit_bus_device.i2c_device as i2c_device
 
 _LIS331_DEFAULT_ADDRESS = 0x18  # If SDO/SA0 is 3V, its 0x19
@@ -226,14 +222,14 @@ class LIS331:
         # pylint: disable=no-member
         self._range_class = LIS331HHRange
         self.data_rate = Rate.RATE_1000_HZ
-        self.range = 3 # highest range for either sensor
+        self.range = 3  # highest range for either sensor
         self._cached_mode = None
         self._cached_data_rate = None
 
     @property
     def lpf_cutoff(self):
         """The frequency above which signals will be filterd out"""
-        if self.mode == Mode.NORMAL:
+        if self.mode == Mode.NORMAL:  # pylint: disable=no-member
             raise RuntimeError(
                 "lpf_cuttoff cannot be read while a NORMAL data rate is in use"
             )
@@ -244,7 +240,7 @@ class LIS331:
         if not Frequency.is_valid(cutoff_freq):
             raise AttributeError("lpf_cutoff must be a `Frequency`")
 
-        if self.mode == Mode.NORMAL:
+        if self.mode == Mode.NORMAL:  # pylint: disable=no-member
             raise RuntimeError(
                 "lpf_cuttoff cannot be set while a NORMAL data rate is in use"
             )
@@ -269,12 +265,13 @@ class LIS331:
         else:
             self._power_mode_bits = new_mode
 
-        self._cached_data_rate = (new_mode<<2 | new_rate_bits)
+        self._cached_data_rate = new_mode << 2 | new_rate_bits
 
     @property
     def mode(self):
-        """The `Mode` power mode that the sensor is set to, as determined by the current `data_rate`. To set the mode, use `data_rate` and the approprite `Rate`"""
-        mode_bits, dr_bits = self._mode_and_rate()
+        """The `Mode` power mode that the sensor is set to, as determined by the current
+        `data_rate`. To set the mode, use `data_rate` and the approprite `Rate`"""
+        mode_bits = self._mode_and_rate()[0]
         return mode_bits
 
     def _mode_and_rate(self, data_rate=None):
@@ -282,7 +279,7 @@ class LIS331:
             data_rate = self._cached_data_rate
         # pylint: disable=no-member
         pm_value = (data_rate & 0x1C) >> 2
-        dr_value = (data_rate & 0x3)
+        dr_value = data_rate & 0x3
         if pm_value is Mode.LOW_POWER:
             dr_value = 0
         return (pm_value, dr_value)
@@ -320,8 +317,7 @@ class LIS331:
         # The measurements are 12 bits left justified to preserve the sign bit
         right_justified = value >> 4
         lsb_value = self._range_class.lsb[self._cached_accel_range]
-        # print("Scaling:")
-        # print("right_justified (in lsb):", right_justified, "lsb_value:", lsb_value)
+
         return right_justified * lsb_value
 
 
