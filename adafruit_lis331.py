@@ -225,6 +225,7 @@ class LIS331:
             raise RuntimeError(
                 "Failed to find %s - check your wiring!" % self.__class__.__name__
             )
+        self._range_class = None
 
     @property
     def lpf_cutoff(self):
@@ -258,7 +259,7 @@ class LIS331:
     def data_rate(self, new_rate_bits):
         if not Rate.is_valid(new_rate_bits):
             raise AttributeError("data_rate must be a `Rate`")
-        # similar to `data_rate` we'll receive the whole group of pm/dr bits to determine what needs to be set
+        # like `data_rate` we'll receive the whole group of pm/dr bits to determine what to be set
         # print("(entry)new_rate_bits", bin(new_rate_bits))
         new_mode, adjusted_rate_bits = self._mode_and_rate(new_rate_bits)
         # print("new mode:", bin(new_mode), "adjusted_rate_bits:", bin(adjusted_rate_bits))
@@ -304,7 +305,7 @@ class LIS331:
             )
         self._range_bits = new_range
         self._cached_accel_range = new_range
-        sleep(0.010) # give time for the new rate to settle
+        sleep(0.010)  # give time for the new rate to settle
 
     _raw_acceleration = ROByteArray((_LIS331_REG_OUT_X_L | 0x80), "<hhh", 6)
 
@@ -337,10 +338,12 @@ class LIS331HH(LIS331):
     """
 
     def __init__(self, i2c_bus, address=_LIS331_DEFAULT_ADDRESS):
+        # pylint: disable=no-member
         super().__init__(i2c_bus, address)
         self._range_class = LIS331HHRange
         self.data_rate = Rate.RATE_1000_HZ
         self.range = LIS331HHRange.RANGE_24G
+
 
 class H3LIS331(LIS331):
     """Driver for the H3LIS331 3-axis high-g accelerometer.
@@ -351,6 +354,7 @@ class H3LIS331(LIS331):
     """
 
     def __init__(self, i2c_bus, address=_LIS331_DEFAULT_ADDRESS):
+        # pylint: disable=no-member
         super().__init__(i2c_bus, address)
         self._range_class = H3LIS331Range
         self.data_rate = Rate.RATE_1000_HZ
