@@ -51,11 +51,11 @@ __version__ = "0.0.0-auto.0"
 __repo__ = "https://github.com/adafruit/Adafruit_CircuitPython_LIS331.git"
 
 # from time import sleep
-import adafruit_bus_device.i2c_device as i2c_device
 from adafruit_register.i2c_struct import ROUnaryStruct  # , Struct
 
 from adafruit_register.i2c_bits import RWBits
-from adafruit_register.i2c_bits import ROByteArray
+from struct import unpack_from
+import adafruit_bus_device.i2c_device as i2c_device
 
 _LIS331_DEFAULT_ADDRESS = 0x18  # If SDO/SA0 is 3V, its 0x19
 _LIS331_CHIP_ID = 0x32  # The default response to WHO_AM_I for the H3LIS331 and LIS331HH
@@ -69,6 +69,38 @@ _LIS331_REG_REFERENCE = 0x26  # HPF reference value
 _LIS331_REG_OUT_X_L = 0x28  # X-axis acceleration data. Low value */
 
 _G_TO_ACCEL = 9.80665
+
+
+class ROByteArray:
+    """
+    Array of registers that are readable only.
+
+    Based on the index, values are offset by the size of the structure.
+
+    Values are FixNums that map to the values in the defined struct.  See struct
+    module documentation for struct format string and its possible value types.
+
+    .. note:: This assumes the device addresses correspond to 8-bit bytes. This is not suitable for
+      devices with registers of other widths such as 16-bit.
+
+    :param int register_address: The register address to begin reading the array from
+    :param str struct_format: The struct format string for this register.
+    :param int count: Number of elements in the array
+    """
+
+    def __init__(  # pylint: disable=too-many-arguments
+        self, register_address, format_str, count
+    ):
+
+        self.buffer = bytearray(1 + count)
+        self.buffer[0] = register_address
+        self.format = format_str
+
+    def __get__(self, obj, objtype=None):
+        with obj.i2c_device as i2c:
+            i2c.write_then_readinto(self.buffer, self.buffer, out_end=1, in_start=1)
+
+        return unpack_from(self.format, self.buffer, 1)  # offset=1
 
 
 class CV:
@@ -100,9 +132,10 @@ LIS331HHRange.add_values(
     (
         ("RANGE_6G", 0, 6, ((6 * 2) / 4096) * _G_TO_ACCEL),
         ("RANGE_12G", 1, 12, ((12 * 2) / 4096) * _G_TO_ACCEL),
-        ("RANGE_24G", 3, 24, ((24 * 2) / 4096) * _G_TO_ACCEL)
+        ("RANGE_24G", 3, 24, ((24 * 2) / 4096) * _G_TO_ACCEL),
     )
 )
+
 
 class H3LIS331Range(CV):
     """Options for ``range``"""
@@ -112,7 +145,7 @@ H3LIS331Range.add_values(
     (
         ("RANGE_100G", 0, 100, ((100 * 2) / 4096) * _G_TO_ACCEL),
         ("RANGE_200G", 1, 200, ((200 * 2) / 4096) * _G_TO_ACCEL),
-        ("RANGE_400G", 3, 400, ((400 * 2) / 4096) * _G_TO_ACCEL)
+        ("RANGE_400G", 3, 400, ((400 * 2) / 4096) * _G_TO_ACCEL),
     )
 )
 
@@ -154,8 +187,10 @@ Mode.add_values(
     )
 )
 
+
 class Frequency(CV):
     """Options for `lpf_cutoff`"""
+
 
 Frequency.add_values(
     (
@@ -165,6 +200,8 @@ Frequency.add_values(
         ("FREQ_780_HZ", 0, 37, None),
     )
 )
+
+
 class LIS331:
     """Driver for the LIS331 Family of 3-axis accelerometers.
 
@@ -187,8 +224,8 @@ class LIS331:
                 "Failed to find %s - check your wiring!" % self.__class__.__name__
             )
         # pylint: disable=no-member
+        self._range_class = LIS331HHRange
         self.data_rate = Rate.RATE_1000_HZ
-        self.range = LIS331HHRange.RANGE_24G
 
     @property
     def data_rate(self):
@@ -200,42 +237,41 @@ class LIS331:
     @data_rate.setter
     def data_rate(self, new_rate_bits):
         if not Rate.is_valid(new_rate_bits):
-            raise AttributeError("data_rate" must be a `Rate`")
+            raise AttributeError("data_rate must be a `Rate`")
         # similarly we'll receive the whole group of pm/dr bits to determine what needs to be set
         new_mode_bits, new_dr_bits = self._mode_and_rate(new_rate_bits)
-        # FIXME
-        print(
-            "new mode is ",
-            Mode.string[new_mode_bits],
-            "PM bits:",
-            bin(new_mode_bits),
-            "DR bits:",
-            bin(new_dr_bits),
-        )
-        if new_mode_bits == Mode.NORMAL:  # pylint: disable=no-member
 
-            print("mode is normal, setting all 5 bits")
+        if new_mode_bits == Mode.NORMAL:  # pylint: disable=no-member
             self._mode_and_odr_bits = new_rate_bits
             return
-        print("mode is shutdown or low power, only setting PM bits")
         self._power_mode_bits = new_mode_bits
 
     @property
     def lpf_cutoff(self):
         """The frequency above which signals will be filterd out"""
+        if self.mode == Mode.NORMAL:
+            raise RuntimeError(
+                "lpf_cuttoff cannot be read while a NORMAL data rate is in use"
+            )
         return self._data_rate_lpf_bits
 
     @lpf_cutoff.setter
     def lpf_cutoff(self, cutoff_freq):
         if not Frequency.is_valid(cutoff_freq):
             raise AttributeError("lpf_cutoff must be a `Frequency`")
-        mode, dr = self._mode_and_rate(self.data_rate)
 
-        print("Mode:", Mode.string[mode])
-        if mode >= Mode.LOW_POWER:
-            raise RuntimeError("lpf_cuttoff cannot be set while a LOWPOWER data rate is in use")
+        if self.mode == Mode.NORMAL:
+            raise RuntimeError(
+                "lpf_cuttoff cannot be set while a NORMAL data rate is in use"
+            )
 
         self._data_rate_lpf_bits = cutoff_freq
+
+    @property
+    def mode(self):
+        """The `Mode` power mode that the sensor is set to, as determined by the current `data_rate`. To set the mode, use `data_rate` and the approprite `Rate`"""
+        return self._mode_and_rate(self.data_rate)[0]
+
     @staticmethod
     def _mode_and_rate(data_rate):
         # pylint: disable=no-member
@@ -245,21 +281,23 @@ class LIS331:
 
         return (pm_value, 0)
 
-    # FIXME - Range needs to work for both Sensors
     @property
     def range(self):
-        """Adjusts the range of values that the sensor can measure, Note that larger ranges will be less accurate. Must be a `Range`"""
+        """Adjusts the range of values that the sensor can measure, Note that larger ranges will be
+         less accurate. Must be a `H3LIS331Range` or `LIS331HHRange` """
         return self._range_bits
 
     @range.setter
     def range(self, new_range):
-        if not LIS331HHRange.is_valid(new_range):  # pylint: disable=no-member
-            raise AttributeError("range must be a `LIS331HHRange`")
-        print("New range: +/-%sg" % LIS331HHRange.string[new_range])
+        if not self._range_class.is_valid(new_range):  # pylint: disable=no-member
+            raise AttributeError(
+                "range must be a `%s`" % self._range_class.__qualname__
+            )
         self._range_bits = new_range
         self._cached_accel_range = new_range
 
-    _raw_acceleration = ROByteArray(6, (_LIS331_REG_OUT_X_L | 0x80), "<hhh")
+    _raw_acceleration = ROByteArray((_LIS331_REG_OUT_X_L | 0x80), "<hhh", 6)
+
     @property
     def acceleration(self):
         """The x, y, z acceleration values returned in a 3-tuple and are in m / s ^ 2."""
@@ -275,4 +313,33 @@ class LIS331:
     def _scale_acceleration(self, value):
         # The measurements are 12 bits left justified to preserve the sign bit
         right_justified = value >> 4
-        return right_justified * LIS331HHRange.lsb[self._cached_accel_range]
+        lsb_value = self._range_class.lsb[self._cached_accel_range]
+        print("Scaling:")
+        print("right_justified (in lsb):", right_justified, "lsb_value:", lsb_value)
+        return right_justified * lsb_value
+
+
+class LIS331HH(LIS331):
+    """Driver for the LIS331HH 3-axis high-g accelerometer.
+
+        :param ~busio.I2C i2c_bus: The I2C bus the LIS331 is connected to.
+        :param address: The I2C slave address of the sensor
+
+    """
+
+    def __init__(self, i2c_bus, address=_LIS331_DEFAULT_ADDRESS):
+        super().__init__(i2c_bus, address)
+        self._range_class = LIS331HHRange
+
+
+class H3LIS331(LIS331):
+    """Driver for the H3LIS331 3-axis high-g accelerometer.
+
+        :param ~busio.I2C i2c_bus: The I2C bus the LIS331 is connected to.
+        :param address: The I2C slave address of the sensor
+
+    """
+
+    def __init__(self, i2c_bus, address=_LIS331_DEFAULT_ADDRESS):
+        super().__init__(i2c_bus, address)
+        self._range_class = H3LIS331Range
