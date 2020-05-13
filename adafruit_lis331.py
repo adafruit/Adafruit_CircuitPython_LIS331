@@ -51,7 +51,7 @@ __repo__ = "https://github.com/adafruit/Adafruit_CircuitPython_LIS331.git"
 from struct import unpack_from
 from time import sleep
 from adafruit_register.i2c_bits import RWBits
-from adafruit_register.i2c_struct import ROUnaryStruct
+from adafruit_register.i2c_struct import UnaryStruct, ROUnaryStruct
 import adafruit_bus_device.i2c_device as i2c_device
 
 _LIS331_DEFAULT_ADDRESS = 0x18  # If SDO/SA0 is 3V, its 0x19
@@ -192,9 +192,23 @@ class Frequency(CV):
 Frequency.add_values(
     (
         ("FREQ_37_HZ", 0, 37, None),
-        ("FREQ_74_HZ", 0, 74, None),
-        ("FREQ_292_HZ", 0, 292, None),
-        ("FREQ_780_HZ", 0, 37, None),
+        ("FREQ_74_HZ", 1, 74, None),
+        ("FREQ_292_HZ", 2, 292, None),
+        ("FREQ_780_HZ", 4, 37, None),
+    )
+)
+
+
+class RateDivisor(CV):
+    """Options for ``hpf_cutoff``"""
+
+
+RateDivisor.add_values(
+    (
+        ("ODR_DIV_50", 0, "ODR/50", None),
+        ("ODR_DIV_100", 1, "ODR/100", None),
+        ("ODR_DIV_200", 2, "ODR/200", None),
+        ("ODR_DIV_400", 3, "ODR/400", None),
     )
 )
 
@@ -213,8 +227,12 @@ class LIS331:
     _power_mode_bits = RWBits(3, _LIS331_REG_CTRL1, 5)
     _data_rate_lpf_bits = RWBits(2, _LIS331_REG_CTRL1, 3)
     _range_bits = RWBits(2, _LIS331_REG_CTRL4, 4)
+    _raw_acceleration = ROByteArray((_LIS331_REG_OUT_X_L | 0x80), "<hhh", 6)
+    _reference_value = UnaryStruct(_LIS331_REG_REFERENCE, "<b")
     CHIP_ID = None
-
+    #           Adafruit_BusIO_Register reference_reg = Adafruit_BusIO_Register(
+    #       i2c_dev, spi_dev, ADDRBIT8_HIGH_TOREAD, LIS331_REG_REFERENCE);
+    #   reference_reg.write(reference);
     def __init__(self, i2c_bus, address=_LIS331_DEFAULT_ADDRESS):
         if (not isinstance(self, LIS331HH)) and (not isinstance(self, H3LIS331)):
             raise RuntimeError(
@@ -229,7 +247,7 @@ class LIS331:
 
     @property
     def lpf_cutoff(self):
-        """The frequency above which signals will be filterd out"""
+        """The frequency above which signals will be filtered out"""
         if self.mode == Mode.NORMAL:  # pylint: disable=no-member
             raise RuntimeError(
                 "lpf_cuttoff cannot be read while a NORMAL data rate is in use"
@@ -247,6 +265,40 @@ class LIS331:
             )
 
         self._data_rate_lpf_bits = cutoff_freq
+
+    @property
+    def hpf_reference(self):
+        """The reference value to offset measurements when using the High-pass filter. To use,
+        ``use_reference`` must be set to true when enabling the high-pass filter. The value
+        is a signed 8-bit number from -128 to 127. The value of each increment of 1 depends on the
+        currently set measurement range and is approximate:
+
++-------------------------------------------------------------+-------------------------------+
+| Range                                                       | Incremental value (LSB value) |
++-------------------------------------------------------------+-------------------------------+
+| ``LIS331HHRange.RANGE_6G`` or ``H3LIS331Range.RANGE_100G``  | ~16mg                         |
++-------------------------------------------------------------+-------------------------------+
+| ``LIS331HHRange.RANGE_12G`` or ``H3LIS331Range.RANGE_200G`` | ~31mg                         |
++-------------------------------------------------------------+-------------------------------+
+| ``LIS331HHRange.RANGE_24G`` or ``H3LIS331Range.RANGE_400G`` | ~63mg                         |
++-------------------------------------------------------------+-------------------------------+
+
+        """
+
+        return self._reference_value
+
+    @hpf_reference.setter
+    def hpf_reference(self, reference_value):
+        if reference_value < -128 or reference_value > 127:
+            raise AttributeError("`hpf_reference` must be from -128 to 127")
+        self._reference_value = reference_value
+
+    #   void enableHighPassFilter(bool filter_enabled,
+    #                             lis331_hpf_cutoff_t cutoff = LIS331_HPF_0_0025_ODR,
+    #                             bool use_reference = false);
+    #   void setHPFReference(int8_t reference);
+    #   int8_t getHPFReference(void);
+    #   void HPFReset(void);
 
     @property
     def data_rate(self):
@@ -306,8 +358,6 @@ class LIS331:
         self._range_bits = new_range
         self._cached_accel_range = new_range
         sleep(0.010)  # give time for the new rate to settle
-
-    _raw_acceleration = ROByteArray((_LIS331_REG_OUT_X_L | 0x80), "<hhh", 6)
 
     @property
     def acceleration(self):
