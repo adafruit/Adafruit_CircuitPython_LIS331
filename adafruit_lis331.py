@@ -226,25 +226,9 @@ class LIS331:
         # pylint: disable=no-member
         self._range_class = LIS331HHRange
         self.data_rate = Rate.RATE_1000_HZ
-
-    @property
-    def data_rate(self):
-        """Select the rate at which the accelerometer takes measurements. Must be a `Rate`"""
-        # because both the power mode[pm] and data rate[dr] bits determine the data rate
-        # we'll report the whole bunch
-        return self._mode_and_odr_bits
-
-    @data_rate.setter
-    def data_rate(self, new_rate_bits):
-        if not Rate.is_valid(new_rate_bits):
-            raise AttributeError("data_rate must be a `Rate`")
-        # similarly we'll receive the whole group of pm/dr bits to determine what needs to be set
-        new_mode_bits, new_dr_bits = self._mode_and_rate(new_rate_bits)
-
-        if new_mode_bits == Mode.NORMAL:  # pylint: disable=no-member
-            self._mode_and_odr_bits = new_rate_bits
-            return
-        self._power_mode_bits = new_mode_bits
+        self.range = 3 # highest range for either sensor
+        self._cached_mode = None
+        self._cached_data_rate = None
 
     @property
     def lpf_cutoff(self):
@@ -268,18 +252,40 @@ class LIS331:
         self._data_rate_lpf_bits = cutoff_freq
 
     @property
+    def data_rate(self):
+        """Select the rate at which the accelerometer takes measurements. Must be a `Rate`"""
+        # because both the power mode[pm] and data rate[dr] bits determine the data rate
+        # we'll report the whole bunch
+        return self._cached_data_rate
+
+    @data_rate.setter
+    def data_rate(self, new_rate_bits):
+        if not Rate.is_valid(new_rate_bits):
+            raise AttributeError("data_rate must be a `Rate`")
+        # similarly we'll receive the whole group of pm/dr bits to determine what needs to be set
+        new_mode, new_rate_bits = self._mode_and_rate(new_rate_bits)
+        if new_mode == Mode.NORMAL:  # pylint: disable=no-member
+            self._mode_and_odr_bits = new_rate_bits
+        else:
+            self._power_mode_bits = new_mode
+
+        self._cached_data_rate = (new_mode<<2 | new_rate_bits)
+
+    @property
     def mode(self):
         """The `Mode` power mode that the sensor is set to, as determined by the current `data_rate`. To set the mode, use `data_rate` and the approprite `Rate`"""
-        return self._mode_and_rate(self.data_rate)[0]
+        mode_bits, dr_bits = self._mode_and_rate()
+        return mode_bits
 
-    @staticmethod
-    def _mode_and_rate(data_rate):
+    def _mode_and_rate(self, data_rate=None):
+        if data_rate is None:
+            data_rate = self._cached_data_rate
         # pylint: disable=no-member
         pm_value = (data_rate & 0x1C) >> 2
-        if pm_value >= Mode.LOW_POWER:
-            return (Mode.LOW_POWER, 0)
-
-        return (pm_value, 0)
+        dr_value = (data_rate & 0x3)
+        if pm_value is Mode.LOW_POWER:
+            dr_value = 0
+        return (pm_value, dr_value)
 
     @property
     def range(self):
@@ -314,8 +320,8 @@ class LIS331:
         # The measurements are 12 bits left justified to preserve the sign bit
         right_justified = value >> 4
         lsb_value = self._range_class.lsb[self._cached_accel_range]
-        print("Scaling:")
-        print("right_justified (in lsb):", right_justified, "lsb_value:", lsb_value)
+        # print("Scaling:")
+        # print("right_justified (in lsb):", right_justified, "lsb_value:", lsb_value)
         return right_justified * lsb_value
 
 
