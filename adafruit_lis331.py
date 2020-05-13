@@ -54,9 +54,8 @@ __repo__ = "https://github.com/adafruit/Adafruit_CircuitPython_LIS331.git"
 import adafruit_bus_device.i2c_device as i2c_device
 from adafruit_register.i2c_struct import ROUnaryStruct  # , Struct
 
-from adafruit_register.i2c_bits import RWBits, ROByteArray
-
-# from adafruit_register.i2c_bit import RWBit
+from adafruit_register.i2c_bits import RWBits
+from adafruit_register.i2c_bits import ROByteArray
 
 _LIS331_DEFAULT_ADDRESS = 0x18  # If SDO/SA0 is 3V, its 0x19
 _LIS331_CHIP_ID = 0x32  # The default response to WHO_AM_I for the H3LIS331 and LIS331HH
@@ -101,7 +100,19 @@ LIS331HHRange.add_values(
     (
         ("RANGE_6G", 0, 6, ((6 * 2) / 4096) * _G_TO_ACCEL),
         ("RANGE_12G", 1, 12, ((12 * 2) / 4096) * _G_TO_ACCEL),
-        ("RANGE_24G", 3, 24, ((24 * 2) / 4096) * _G_TO_ACCEL),
+        ("RANGE_24G", 3, 24, ((24 * 2) / 4096) * _G_TO_ACCEL)
+    )
+)
+
+class H3LIS331Range(CV):
+    """Options for ``range``"""
+
+
+H3LIS331Range.add_values(
+    (
+        ("RANGE_100G", 0, 100, ((100 * 2) / 4096) * _G_TO_ACCEL),
+        ("RANGE_200G", 1, 200, ((200 * 2) / 4096) * _G_TO_ACCEL),
+        ("RANGE_400G", 3, 400, ((400 * 2) / 4096) * _G_TO_ACCEL)
     )
 )
 
@@ -143,7 +154,17 @@ Mode.add_values(
     )
 )
 
+class Frequency(CV):
+    """Options for `lpf_cutoff`"""
 
+Frequency.add_values(
+    (
+        ("FREQ_37_HZ", 0, 37, None),
+        ("FREQ_74_HZ", 0, 74, None),
+        ("FREQ_292_HZ", 0, 292, None),
+        ("FREQ_780_HZ", 0, 37, None),
+    )
+)
 class LIS331:
     """Driver for the LIS331 Family of 3-axis accelerometers.
 
@@ -179,7 +200,7 @@ class LIS331:
     @data_rate.setter
     def data_rate(self, new_rate_bits):
         if not Rate.is_valid(new_rate_bits):
-            raise AttributeError("range must be a `Range`")
+            raise AttributeError("data_rate" must be a `Rate`")
         # similarly we'll receive the whole group of pm/dr bits to determine what needs to be set
         new_mode_bits, new_dr_bits = self._mode_and_rate(new_rate_bits)
         # FIXME
@@ -199,6 +220,22 @@ class LIS331:
         print("mode is shutdown or low power, only setting PM bits")
         self._power_mode_bits = new_mode_bits
 
+    @property
+    def lpf_cutoff(self):
+        """The frequency above which signals will be filterd out"""
+        return self._data_rate_lpf_bits
+
+    @lpf_cutoff.setter
+    def lpf_cutoff(self, cutoff_freq):
+        if not Frequency.is_valid(cutoff_freq):
+            raise AttributeError("lpf_cutoff must be a `Frequency`")
+        mode, dr = self._mode_and_rate(self.data_rate)
+
+        print("Mode:", Mode.string[mode])
+        if mode >= Mode.LOW_POWER:
+            raise RuntimeError("lpf_cuttoff cannot be set while a LOWPOWER data rate is in use")
+
+        self._data_rate_lpf_bits = cutoff_freq
     @staticmethod
     def _mode_and_rate(data_rate):
         # pylint: disable=no-member
@@ -211,20 +248,18 @@ class LIS331:
     # FIXME - Range needs to work for both Sensors
     @property
     def range(self):
-        """Adjusts the range of values that the sensor can measure, from +/- 6g to +/-
-        24g Note that larger ranges will be less accurate. Must be an `LIS331HHRange`"""
+        """Adjusts the range of values that the sensor can measure, Note that larger ranges will be less accurate. Must be a `Range`"""
         return self._range_bits
 
     @range.setter
     def range(self, new_range):
         if not LIS331HHRange.is_valid(new_range):  # pylint: disable=no-member
-            raise AttributeError("range must be a `Range`")
+            raise AttributeError("range must be a `LIS331HHRange`")
         print("New range: +/-%sg" % LIS331HHRange.string[new_range])
         self._range_bits = new_range
         self._cached_accel_range = new_range
 
     _raw_acceleration = ROByteArray(6, (_LIS331_REG_OUT_X_L | 0x80), "<hhh")
-
     @property
     def acceleration(self):
         """The x, y, z acceleration values returned in a 3-tuple and are in m / s ^ 2."""
@@ -241,77 +276,3 @@ class LIS331:
         # The measurements are 12 bits left justified to preserve the sign bit
         right_justified = value >> 4
         return right_justified * LIS331HHRange.lsb[self._cached_accel_range]
-
-        # Adafruit_BusIO_Register _ctrl1 = Adafruit_BusIO_Register(
-        #     i2c_dev, spi_dev, ADDRBIT8_HIGH_TOREAD, LIS331_REG_CTRL1, 1);
-        # _ctrl1.write(0x07); // enable all axes, normal mode
-
-        # setDataRate(LIS331_DATARATE_1000_HZ);
-        # setRange(H3LIS331_RANGE_400_G);
-
-        # void Adafruit_LIS331::setDataRate(lis331_data_rate_t data_rate) {
-        # int8_t dr_value = 0;
-        # int8_t pm_value = 0;
-
-        # lis331_mode_t new_mode = getMode(data_rate);
-        # Adafruit_BusIO_Register _ctrl1 = Adafruit_BusIO_Register(
-        #     i2c_dev, spi_dev, ADDRBIT8_HIGH_TOREAD, LIS331_REG_CTRL1, 1);
-        # Adafruit_BusIO_RegisterBits pm_bits =
-        #     Adafruit_BusIO_RegisterBits(&_ctrl1, 3, 5);
-
-        # switch (new_mode) {
-        # case LIS331_MODE_SHUTDOWN:
-        #     break;
-
-        # case LIS331_MODE_LOW_POWER: // ODR bits are in CTRL1[7:5] (PM)
-        #     pm_value = ((data_rate & 0x1C)) >> 2;
-        #     break;
-
-        # case LIS331_MODE_NORMAL: // ODR bits are in CTRL1[4:3] (DR)
-        #     pm_value = ((data_rate & 0x1C)) >> 2;
-        #     dr_value = (data_rate & 0x7);
-
-        #     // only Normal mode uses DR to set ODR, so we can set it here
-        #     Adafruit_BusIO_RegisterBits dr_bits =
-        #         Adafruit_BusIO_RegisterBits(&_ctrl1, 2, 3);
-        #     dr_bits.write(dr_value);
-        #     break;
-        # }
-
-        # pm_bits.write(pm_value);
-        # }
-
-        # /*!
-        # *   @brief  Gets the data rate for the LIS331 (affects power consumption)
-        # *   @return Returns Data Rate value
-        # */
-        # lis331_data_rate_t Adafruit_LIS331::getDataRate(void) {
-        # Adafruit_BusIO_Register _ctrl1 = Adafruit_BusIO_Register(
-        #     i2c_dev, spi_dev, ADDRBIT8_HIGH_TOREAD, LIS331_REG_CTRL1, 1);
-        # Adafruit_BusIO_RegisterBits pm_dr_bits =
-        #     Adafruit_BusIO_RegisterBits(&_ctrl1, 5, 3);
-        # return (lis331_data_rate_t)pm_dr_bits.read();
-        # }
-
-        # /**
-        # * @brief  Return the current power mode from the current data rate
-        # * @return lis331_mode_t The currently set power mode
-        # */
-        # lis331_mode_t Adafruit_LIS331::getMode(void) {
-        # lis331_data_rate_t current_rate = getDataRate();
-        # return getMode(current_rate);
-        # }
-
-        # /**
-        # * @brief Return the current power mode from a given data rate value
-        # *
-        # * @param data_rate The `lis331_data_rate_t` to return the `lis331_mode_t` for
-        # * @return lis331_mode_t
-        # */
-        # lis331_mode_t Adafruit_LIS331::getMode(lis331_data_rate_t data_rate) {
-        # uint8_t pm_value = (data_rate & 0x1C) >> 2;
-        # if (pm_value >= LIS331_MODE_LOW_POWER) {
-        #     return LIS331_MODE_LOW_POWER;
-        # }
-        # return (lis331_mode_t)pm_value;
-        # }
