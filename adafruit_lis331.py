@@ -199,7 +199,8 @@ Frequency.add_values(
 
 
 class LIS331:
-    """Driver for the LIS331 Family of 3-axis accelerometers.
+    """Base class for the LIS331 family of 3-axis accelerometers.
+    **Cannot be instantiated directly**
 
         :param ~busio.I2C i2c_bus: The I2C bus the LIS331 is connected to.
         :param address: The I2C slave address of the sensor
@@ -214,11 +215,17 @@ class LIS331:
     CHIP_ID = None
 
     def __init__(self, i2c_bus, address=_LIS331_DEFAULT_ADDRESS):
+        if (not isinstance(self, LIS331HH)) and (not isinstance(self, H3LIS331)):
+            raise RuntimeError(
+                "Base class LIS331 cannot be instantiated directly. Use LIS331HH or H3LIS331"
+            )
+
         self.i2c_device = i2c_device.I2CDevice(i2c_bus, address)
         if self._chip_id != _LIS331_CHIP_ID:
             raise RuntimeError(
                 "Failed to find %s - check your wiring!" % self.__class__.__name__
             )
+
         # pylint: disable=no-member
         self._range_class = LIS331HHRange
         self.data_rate = Rate.RATE_1000_HZ
