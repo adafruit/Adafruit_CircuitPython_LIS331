@@ -51,6 +51,7 @@ __repo__ = "https://github.com/adafruit/Adafruit_CircuitPython_LIS331.git"
 from struct import unpack_from
 from time import sleep
 from adafruit_register.i2c_bits import RWBits
+from adafruit_register.i2c_bit import RWBit
 from adafruit_register.i2c_struct import UnaryStruct, ROUnaryStruct
 import adafruit_bus_device.i2c_device as i2c_device
 
@@ -214,6 +215,7 @@ RateDivisor.add_values(
 
 
 class LIS331:
+    # pylint:disable=too-many-instance-attributes
     """Base class for the LIS331 family of 3-axis accelerometers.
     **Cannot be instantiated directly**
 
@@ -229,6 +231,12 @@ class LIS331:
     _range_bits = RWBits(2, _LIS331_REG_CTRL4, 4)
     _raw_acceleration = ROByteArray((_LIS331_REG_OUT_X_L | 0x80), "<hhh", 6)
     _reference_value = UnaryStruct(_LIS331_REG_REFERENCE, "<b")
+    _zero_hpf_reference = ROUnaryStruct(_LIS331_REG_HP_FILTER_RESET, "<b")
+
+    _hpf_mode_bits = RWBit(_LIS331_REG_CTRL2, 5)
+    _hpf_enable_bit = RWBit(_LIS331_REG_CTRL2, 4)
+    _hpf_cutoff = RWBits(2, _LIS331_REG_CTRL2, 0)
+
     CHIP_ID = None
     #           Adafruit_BusIO_Register reference_reg = Adafruit_BusIO_Register(
     #       i2c_dev, spi_dev, ADDRBIT8_HIGH_TOREAD, LIS331_REG_REFERENCE);
@@ -244,6 +252,7 @@ class LIS331:
                 "Failed to find %s - check your wiring!" % self.__class__.__name__
             )
         self._range_class = None
+        self.enable_hpf(False)
 
     @property
     def lpf_cutoff(self):
@@ -293,12 +302,32 @@ class LIS331:
             raise AttributeError("`hpf_reference` must be from -128 to 127")
         self._reference_value = reference_value
 
-    #   void enableHighPassFilter(bool filter_enabled,
-    #                             lis331_hpf_cutoff_t cutoff = LIS331_HPF_0_0025_ODR,
-    #                             bool use_reference = false);
-    #   void setHPFReference(int8_t reference);
-    #   int8_t getHPFReference(void);
-    #   void HPFReset(void);
+    def zero_hpf(self):
+        """When the high-pass filter is enabled  with ``use_reference=False``, calling ``zero_hpf``
+        will set all measurements to zero immediately, avoiding the normal settling time seen when
+        using the high-pass filter without a ``hpf_reference``
+        """
+
+    def enable_hpf(
+        self, enabled=True, cutoff=RateDivisor.ODR_DIV_50, use_reference=False
+    ):  # pylint: disable=no-member
+        """Enable or disable the high-pass filter.
+
+        :param enabled: Enable or disable the filter. Default is `True` to enable
+        :param ~RateDivisor cutoff: A `RateDivisor` to set the high-pass cutoff frequency. Default\
+        is ``RateDivisor.ODR_DIV_50``. See ``RateDivisor`` for more information
+        :param use_reference: Determines if the filtered measurements are offset by a reference\
+        value. Default is false.
+
+    See section **4** of the LIS331DLH application note for more information `LIS331DLH application\
+        note for more information <https://www.st.com/content/ccc/resource/technical/document/\
+        application_note/b5/8e/58/69/cb/87/45/55/CD00215823.pdf/files/CD00215823.pdf/jcr:content/\
+        translations/en.CD00215823.pdf>`_
+
+        """
+        self._hpf_mode_bits = use_reference
+        self._hpf_cutoff = cutoff
+        self._hpf_enable_bit = enabled
 
     @property
     def data_rate(self):
