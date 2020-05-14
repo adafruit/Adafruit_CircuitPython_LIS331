@@ -1,18 +1,20 @@
 import time
 import board
 import busio
-from adafruit_lis331 import *
+import adafruit_lis331
 
 i2c = busio.I2C(board.SCL, board.SDA)
 # un-comment the sensor you are using
 # lis = H3LIS331(i2c)
-lis = LIS331HH(i2c)
+lis = adafruit_lis331.LIS331HH(i2c)
 
 # use a nice fast data rate to for maximum resolution
-lis.data_rate = Rate.RATE_1000_HZ
+lis.data_rate = adafruit_lis331.Rate.RATE_1000_HZ
 
 # enable the high pass filter without a reference or offset
-lis.enable_hpf(True, cutoff=RateDivisor.ODR_DIV_100, use_reference=False)
+lis.enable_hpf(
+    True, cutoff=adafruit_lis331.RateDivisor.ODR_DIV_100, use_reference=False
+)
 
 # you can also uncomment this section to set and use a reference to offset the measurements
 # lis.hpf_reference = 50
