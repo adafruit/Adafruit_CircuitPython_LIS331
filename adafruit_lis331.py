@@ -336,9 +336,8 @@ class LIS331:
         if not Rate.is_valid(new_rate_bits):
             raise AttributeError("data_rate must be a `Rate`")
 
-        # to determine what to be set we'll receive the whole group of pm/dr bits
-        # to make sure we don't overwrite the filter
-        new_mode, adjusted_rate_bits = self._mode_and_rate(new_rate_bits)
+        # to determine what to be set we'll look at the mode to so we don't overwrite the filter
+        new_mode = self._mode_and_rate(new_rate_bits)[0]
         if new_mode == Mode.NORMAL:  # pylint: disable=no-member
             self._mode_and_odr_bits = new_rate_bits
         else:
