@@ -230,17 +230,13 @@ class LIS331:
     _data_rate_lpf_bits = RWBits(2, _LIS331_REG_CTRL1, 3)
     _range_bits = RWBits(2, _LIS331_REG_CTRL4, 4)
     _raw_acceleration = ROByteArray((_LIS331_REG_OUT_X_L | 0x80), "<hhh", 6)
-    _reference_value = UnaryStruct(_LIS331_REG_REFERENCE, "<b")
-    _zero_hpf_reference = ROUnaryStruct(_LIS331_REG_HP_FILTER_RESET, "<b")
 
+    _reference_value = UnaryStruct(_LIS331_REG_REFERENCE, "<b")
+    _zero_hpf = ROUnaryStruct(_LIS331_REG_HP_FILTER_RESET, "<b")
     _hpf_mode_bits = RWBit(_LIS331_REG_CTRL2, 5)
     _hpf_enable_bit = RWBit(_LIS331_REG_CTRL2, 4)
     _hpf_cutoff = RWBits(2, _LIS331_REG_CTRL2, 0)
 
-    CHIP_ID = None
-    #           Adafruit_BusIO_Register reference_reg = Adafruit_BusIO_Register(
-    #       i2c_dev, spi_dev, ADDRBIT8_HIGH_TOREAD, LIS331_REG_REFERENCE);
-    #   reference_reg.write(reference);
     def __init__(self, i2c_bus, address=_LIS331_DEFAULT_ADDRESS):
         if (not isinstance(self, LIS331HH)) and (not isinstance(self, H3LIS331)):
             raise RuntimeError(
@@ -307,6 +303,7 @@ class LIS331:
         will set all measurements to zero immediately, avoiding the normal settling time seen when
         using the high-pass filter without a ``hpf_reference``
         """
+        self._zero_hpf  # pylint: disable=pointless-statement
 
     def enable_hpf(
         self, enabled=True, cutoff=RateDivisor.ODR_DIV_50, use_reference=False
@@ -332,25 +329,19 @@ class LIS331:
     @property
     def data_rate(self):
         """Select the rate at which the accelerometer takes measurements. Must be a `Rate`"""
-        # because both the power mode[pm] and data rate[dr] bits determine the data rate
-        # we'll report the whole bunch
         return self._cached_data_rate
 
     @data_rate.setter
     def data_rate(self, new_rate_bits):
         if not Rate.is_valid(new_rate_bits):
             raise AttributeError("data_rate must be a `Rate`")
-        # like `data_rate` we'll receive the whole group of pm/dr bits to determine what to be set
-        # print("(entry)new_rate_bits", bin(new_rate_bits))
+
+        # to determine what to be set we'll receive the whole group of pm/dr bits
+        # to make sure we don't overwrite the filter
         new_mode, adjusted_rate_bits = self._mode_and_rate(new_rate_bits)
-        # print("new mode:", bin(new_mode), "adjusted_rate_bits:", bin(adjusted_rate_bits))
         if new_mode == Mode.NORMAL:  # pylint: disable=no-member
-            # print("Mode is NORMAL")
-            # print("setting self._mode_and_odr_bits to new_rate_bits", bin(new_rate_bits))
             self._mode_and_odr_bits = new_rate_bits
         else:
-            # print("Mode is ", Mode.string[new_mode], "and not NORMAL")
-            # print("setting self._power_mode_bits to new_mode", bin(new_mode))
             self._power_mode_bits = new_mode
 
         self._cached_data_rate = new_mode << 2 | new_rate_bits
@@ -365,10 +356,10 @@ class LIS331:
     def _mode_and_rate(self, data_rate=None):
         if data_rate is None:
             data_rate = self._cached_data_rate
-        # pylint: disable=no-member
+
         pm_value = (data_rate & 0x1C) >> 2
         dr_value = data_rate & 0x3
-        if pm_value is Mode.LOW_POWER:
+        if pm_value is Mode.LOW_POWER:  # pylint: disable=no-member
             dr_value = 0
         return (pm_value, dr_value)
 
@@ -402,9 +393,9 @@ class LIS331:
 
     def _scale_acceleration(self, value):
         # The measurements are 12 bits left justified to preserve the sign bit
+        # so we'll shift them back to get the real value
         right_justified = value >> 4
         lsb_value = self._range_class.lsb[self._cached_accel_range]
-        # print("v:", value, "cr:", self._cached_accel_range, "l:", lsb_value)
         return right_justified * lsb_value
 
 
