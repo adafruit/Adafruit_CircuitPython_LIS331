@@ -1,24 +1,7 @@
-# The MIT License (MIT)
+# SPDX-FileCopyrightText: 2020 Bryan Siepert for Adafruit Industries
 #
-# Copyright (c) 2020 Bryan Siepert for Adafruit Industries
-#
-# Permission is hereby granted, free of charge, to any person obtaining a copy
-# of this software and associated documentation files (the "Software"), to deal
-# in the Software without restriction, including without limitation the rights
-# to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-# copies of the Software, and to permit persons to whom the Software is
-# furnished to do so, subject to the following conditions:
-#
-# The above copyright notice and this permission notice shall be included in
-# all copies or substantial portions of the Software.
-#
-# THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-# IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-# FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-# AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-# LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-# OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
-# THE SOFTWARE.
+# SPDX-License-Identifier: MIT
+
 """
 `adafruit_lis331`
 ================================================================================
@@ -277,17 +260,17 @@ class LIS331:
         ``use_reference`` must be set to true when enabling the high-pass filter. The value
         is a signed 8-bit number from -128 to 127. The value of each increment of 1 depends on the
         currently set measurement range and is approximate:
-
-+-------------------------------------------------------------+-------------------------------+
-| Range                                                       | Incremental value (LSB value) |
-+-------------------------------------------------------------+-------------------------------+
-| ``LIS331HHRange.RANGE_6G`` or ``H3LIS331Range.RANGE_100G``  | ~16mg                         |
-+-------------------------------------------------------------+-------------------------------+
-| ``LIS331HHRange.RANGE_12G`` or ``H3LIS331Range.RANGE_200G`` | ~31mg                         |
-+-------------------------------------------------------------+-------------------------------+
-| ``LIS331HHRange.RANGE_24G`` or ``H3LIS331Range.RANGE_400G`` | ~63mg                         |
-+-------------------------------------------------------------+-------------------------------+
-
+        #pylint: disable=line-too-long
+        +-------------------------------------------------------------+-------------------------------+
+        | Range                                                       | Incremental value (LSB value) |
+        +-------------------------------------------------------------+-------------------------------+
+        | ``LIS331HHRange.RANGE_6G`` or ``H3LIS331Range.RANGE_100G``  | ~16mg                         |
+        +-------------------------------------------------------------+-------------------------------+
+        | ``LIS331HHRange.RANGE_12G`` or ``H3LIS331Range.RANGE_200G`` | ~31mg                         |
+        +-------------------------------------------------------------+-------------------------------+
+        | ``LIS331HHRange.RANGE_24G`` or ``H3LIS331Range.RANGE_400G`` | ~63mg                         |
+        +-------------------------------------------------------------+-------------------------------+
+        #pylint: enable=line-too-long
         """
 
         return self._reference_value
@@ -365,7 +348,7 @@ class LIS331:
     @property
     def range(self):
         """Adjusts the range of values that the sensor can measure, Note that larger ranges will be
-         less accurate. Must be a `H3LIS331Range` or `LIS331HHRange` """
+        less accurate. Must be a `H3LIS331Range` or `LIS331HHRange`"""
         return self._range_bits
 
     @range.setter
@@ -401,8 +384,8 @@ class LIS331:
 class LIS331HH(LIS331):
     """Driver for the LIS331HH 3-axis high-g accelerometer.
 
-        :param ~busio.I2C i2c_bus: The I2C bus the LIS331 is connected to.
-        :param address: The I2C slave address of the sensor
+    :param ~busio.I2C i2c_bus: The I2C bus the LIS331 is connected to.
+    :param address: The I2C slave address of the sensor
 
     """
 
@@ -417,8 +400,8 @@ class LIS331HH(LIS331):
 class H3LIS331(LIS331):
     """Driver for the H3LIS331 3-axis high-g accelerometer.
 
-        :param ~busio.I2C i2c_bus: The I2C bus the LIS331 is connected to.
-        :param address: The I2C slave address of the sensor
+    :param ~busio.I2C i2c_bus: The I2C bus the LIS331 is connected to.
+    :param address: The I2C slave address of the sensor
 
     """
 
