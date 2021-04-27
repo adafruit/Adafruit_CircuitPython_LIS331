@@ -16,16 +16,15 @@ Implementation Notes
 
 **Hardware:**
 
-* `Adafruit LIS331HH Breakout <https://www.adafruit.com/products/45XX>`_
-* `Adafruit H3LIS331 Breakout <https://www.adafruit.com/products/45XX>`_
+* `Adafruit LIS331HH Breakout <https://www.adafruit.com/products/4626>`_
+* `Adafruit H3LIS331 Breakout <https://www.adafruit.com/products/4627>`_
 
 **Software and Dependencies:**
 
 * Adafruit CircuitPython firmware for the supported boards:
-  https://github.com/adafruit/circuitpython/releases
-
- * Adafruit's Bus Device library: https://github.com/adafruit/Adafruit_CircuitPython_BusDevice
- * Adafruit's Register library: https://github.com/adafruit/Adafruit_CircuitPython_Register
+  https://circuitpython.org/downloads
+* Adafruit's Bus Device library: https://github.com/adafruit/Adafruit_CircuitPython_BusDevice
+* Adafruit's Register library: https://github.com/adafruit/Adafruit_CircuitPython_Register
 """
 
 __version__ = "0.0.0-auto.0"
@@ -61,12 +60,16 @@ class ROByteArray:
     Values are FixNums that map to the values in the defined struct.  See struct
     module documentation for struct format string and its possible value types.
 
-    .. note:: This assumes the device addresses correspond to 8-bit bytes. This is not suitable for
-      devices with registers of other widths such as 16-bit.
+    .. note::
+        This assumes the device addresses correspond to 8-bit bytes.
+        This is not suitable for devices with registers of other
+        widths such as 16-bit.
 
     :param int register_address: The register address to begin reading the array from
-    :param str struct_format: The struct format string for this register.
+    :param str format_str: The struct format string for this register.
     :param int count: Number of elements in the array
+
+
     """
 
     def __init__(  # pylint: disable=too-many-arguments
@@ -203,7 +206,7 @@ class LIS331:
     **Cannot be instantiated directly**
 
         :param ~busio.I2C i2c_bus: The I2C bus the LIS331 is connected to.
-        :param address: The I2C slave address of the sensor
+        :param address: The I2C device address.  Defaults to :const:`0x18`
 
     """
 
@@ -261,6 +264,7 @@ class LIS331:
         is a signed 8-bit number from -128 to 127. The value of each increment of 1 depends on the
         currently set measurement range and is approximate:
         #pylint: disable=line-too-long
+
         +-------------------------------------------------------------+-------------------------------+
         | Range                                                       | Incremental value (LSB value) |
         +-------------------------------------------------------------+-------------------------------+
@@ -270,6 +274,7 @@ class LIS331:
         +-------------------------------------------------------------+-------------------------------+
         | ``LIS331HHRange.RANGE_24G`` or ``H3LIS331Range.RANGE_400G`` | ~63mg                         |
         +-------------------------------------------------------------+-------------------------------+
+
         #pylint: enable=line-too-long
         """
 
@@ -282,9 +287,10 @@ class LIS331:
         self._reference_value = reference_value
 
     def zero_hpf(self):
-        """When the high-pass filter is enabled  with ``use_reference=False``, calling ``zero_hpf``
-        will set all measurements to zero immediately, avoiding the normal settling time seen when
-        using the high-pass filter without a ``hpf_reference``
+        """When the high-pass filter is enabled  with ``use_reference=False``,
+        calling :meth:`zero_hpf` will set all measurements to zero immediately,
+        avoiding the normal settling time seen when using the high-pass filter
+        without a :meth:`hpf_reference`
         """
         self._zero_hpf  # pylint: disable=pointless-statement
 
@@ -294,12 +300,14 @@ class LIS331:
         """Enable or disable the high-pass filter.
 
         :param enabled: Enable or disable the filter. Default is `True` to enable
-        :param ~RateDivisor cutoff: A `RateDivisor` to set the high-pass cutoff frequency. Default\
-        is ``RateDivisor.ODR_DIV_50``. See ``RateDivisor`` for more information
+        :param ``RateDivisor`` cutoff: A ``RateDivisor`` to set the high-pass
+         cutoff frequency. Default is ``RateDivisor.ODR_DIV_50``. See ``RateDivisor``
+         for more information
         :param use_reference: Determines if the filtered measurements are offset by a reference\
-        value. Default is false.
+         value. Default is false.
 
-    See section **4** of the LIS331DLH application note for more information `LIS331DLH application\
+        See section **4** of the LIS331DLH application note for more information
+        `LIS331DLH application
         note for more information <https://www.st.com/content/ccc/resource/technical/document/\
         application_note/b5/8e/58/69/cb/87/45/55/CD00215823.pdf/files/CD00215823.pdf/jcr:content/\
         translations/en.CD00215823.pdf>`_
@@ -311,7 +319,7 @@ class LIS331:
 
     @property
     def data_rate(self):
-        """Select the rate at which the accelerometer takes measurements. Must be a `Rate`"""
+        """Select the rate at which the accelerometer takes measurements. Must be a ``Rate``"""
         return self._cached_data_rate
 
     @data_rate.setter
@@ -330,8 +338,8 @@ class LIS331:
 
     @property
     def mode(self):
-        """The `Mode` power mode that the sensor is set to, as determined by the current
-        `data_rate`. To set the mode, use `data_rate` and the approprite `Rate`"""
+        """The :attr:`Mode` power mode that the sensor is set to, as determined by the current
+        `data_rate`. To set the mode, use `data_rate` and the appropriate ``Rate``"""
         mode_bits = self._mode_and_rate()[0]
         return mode_bits
 
@@ -348,7 +356,7 @@ class LIS331:
     @property
     def range(self):
         """Adjusts the range of values that the sensor can measure, Note that larger ranges will be
-        less accurate. Must be a `H3LIS331Range` or `LIS331HHRange`"""
+        less accurate. Must be a ``H3LIS331Range`` or ``LIS331HHRange``"""
         return self._range_bits
 
     @range.setter
@@ -363,7 +371,7 @@ class LIS331:
 
     @property
     def acceleration(self):
-        """The x, y, z acceleration values returned in a 3-tuple and are in m / s ^ 2."""
+        """The x, y, z acceleration values returned in a 3-tuple and are in :math:`m / s ^ 2`."""
 
         raw_acceleration_bytes = self._raw_acceleration
 
@@ -385,7 +393,30 @@ class LIS331HH(LIS331):
     """Driver for the LIS331HH 3-axis high-g accelerometer.
 
     :param ~busio.I2C i2c_bus: The I2C bus the LIS331 is connected to.
-    :param address: The I2C slave address of the sensor
+    :param address: The I2C device address. Defaults to :const:`0x18`
+
+    **Quickstart: Importing and using the device**
+
+        Here is an example of using the :class:`LIS331` class.
+        First you will need to import the libraries to use the sensor
+
+        .. code-block:: python
+
+            import board
+            import adafruit_lis331
+
+        Once this is done you can define your `board.I2C` object and define your sensor object
+
+        .. code-block:: python
+
+            i2c = board.I2C()
+            lis = adafruit_lis331.LIS331HH(i2c)
+
+        Now you have access to the :attr:`acceleration` attribute
+
+        .. code-block:: python
+
+            acceleration = lis.acceleration
 
     """
 
@@ -401,7 +432,32 @@ class H3LIS331(LIS331):
     """Driver for the H3LIS331 3-axis high-g accelerometer.
 
     :param ~busio.I2C i2c_bus: The I2C bus the LIS331 is connected to.
-    :param address: The I2C slave address of the sensor
+    :param address: The I2C slave address of the sensor. Defaults to :const:`0x18`
+
+    **Quickstart: Importing and using the device**
+
+        Here is an example of using the :class:`LIS331` class.
+        First you will need to import the libraries to use the sensor
+
+        .. code-block:: python
+
+            import board
+            import adafruit_lis331
+
+        Once this is done you can define your `board.I2C` object and define your sensor object
+
+        .. code-block:: python
+
+            i2c = board.I2C()
+            lis = adafruit_lis331.H3LIS331(i2c)
+
+        Now you have access to the :attr:`acceleration` attribute
+
+        .. code-block:: python
+
+            acceleration = lis.acceleration
+
+
 
     """
 
