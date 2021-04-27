@@ -23,7 +23,7 @@ Table of Contents
 .. toctree::
     :caption: Tutorials
 
-
+    Adafruit LIS331HH 3-axis Accelerometer Breakout Learning Guide <https://learn.adafruit.com/adafruit-h3lis331-and-lis331hh-high-g-3-axis-accelerometers/overview>
 
 .. toctree::
     :caption: Related Products

@@ -3,10 +3,9 @@
 
 import time
 import board
-import busio
 import adafruit_lis331
 
-i2c = busio.I2C(board.SCL, board.SDA)
+i2c = board.I2C()  # uses board.SCL and board.SDA
 # un-comment the sensor you are using
 # lis = H3LIS331(i2c)
 lis = adafruit_lis331.LIS331HH(i2c)

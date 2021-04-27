@@ -6,3 +6,5 @@
 
 .. automodule:: adafruit_lis331
    :members:
+   :exclude-members: ROByteArray, CV, RateDivisor, Frequency, Mode, Rate, H3LIS331Range, LIS331HHRange
+   :member-order: bysource
