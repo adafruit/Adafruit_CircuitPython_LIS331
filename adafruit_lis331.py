@@ -409,7 +409,7 @@ class LIS331HH(LIS331):
 
         .. code-block:: python
 
-            i2c = board.I2C()
+            i2c = board.I2C()  # uses board.SCL and board.SDA
             lis = adafruit_lis331.LIS331HH(i2c)
 
         Now you have access to the :attr:`acceleration` attribute
@@ -448,7 +448,7 @@ class H3LIS331(LIS331):
 
         .. code-block:: python
 
-            i2c = board.I2C()
+            i2c = board.I2C()  # uses board.SCL and board.SDA
             lis = adafruit_lis331.H3LIS331(i2c)
 
         Now you have access to the :attr:`acceleration` attribute

@@ -65,7 +65,7 @@ Usage Example
     import board
     import adafruit_lis331
 
-    i2c = board.I2C()
+    i2c = board.I2C()  # uses board.SCL and board.SDA
     lis = adafruit_lis331.LIS331(i2c)
 
     while True:
