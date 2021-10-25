@@ -72,6 +72,11 @@ Usage Example
         print("Acceleration : X: %.2f, Y:%.2f, Z:%.2f ms^2" % lis.acceleration)
         time.sleep(1)
 
+Documentation
+=============
+
+API documentation for this library can be found on `Read the Docs <https://circuitpython.readthedocs.io/projects/lis331/en/latest/>`_.
+
 Contributing
 ============
 
