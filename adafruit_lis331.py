@@ -35,7 +35,7 @@ from time import sleep
 from adafruit_register.i2c_bits import RWBits
 from adafruit_register.i2c_bit import RWBit
 from adafruit_register.i2c_struct import UnaryStruct, ROUnaryStruct
-import adafruit_bus_device.i2c_device as i2c_device
+from adafruit_bus_device import i2c_device
 
 _LIS331_DEFAULT_ADDRESS = 0x18  # If SDO/SA0 is 3V, its 0x19
 _LIS331_CHIP_ID = 0x32  # The default response to WHO_AM_I for the H3LIS331 and LIS331HH
