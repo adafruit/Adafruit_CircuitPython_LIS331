@@ -37,6 +37,12 @@ from adafruit_register.i2c_bit import RWBit
 from adafruit_register.i2c_struct import UnaryStruct, ROUnaryStruct
 from adafruit_bus_device import i2c_device
 
+try:
+    from typing import Iterable, Optional, Tuple, Type, Union
+    from busio import I2C
+except ImportError:
+    pass
+
 _LIS331_DEFAULT_ADDRESS = 0x18  # If SDO/SA0 is 3V, its 0x19
 _LIS331_CHIP_ID = 0x32  # The default response to WHO_AM_I for the H3LIS331 and LIS331HH
 _LIS331_REG_WHOAMI = 0x0F  # Device identification register. [0, 0, 1, 1, 0, 0, 1, 1] */
@@ -73,14 +79,16 @@ class ROByteArray:
     """
 
     def __init__(  # pylint: disable=too-many-arguments
-        self, register_address, format_str, count
+        self, register_address: int, format_str: str, count: int
     ):
 
         self.buffer = bytearray(1 + count)
         self.buffer[0] = register_address
         self.format = format_str
 
-    def __get__(self, obj, objtype=None):
+    def __get__(
+        self, obj: Optional["LIS331"], objtype: Optional[Type["LIS331"]] = None
+    ) -> int:
         with obj.i2c_device as i2c:
             i2c.write_then_readinto(self.buffer, self.buffer, out_end=1, in_start=1)
 
@@ -91,7 +99,9 @@ class CV:
     """struct helper"""
 
     @classmethod
-    def add_values(cls, value_tuples):
+    def add_values(
+        cls, value_tuples: Iterable[Tuple[str, int, Union[str, float], Optional[float]]]
+    ) -> None:
         "creates CV entires"
         cls.string = {}
         cls.lsb = {}
@@ -103,7 +113,7 @@ class CV:
             cls.lsb[value] = lsb
 
     @classmethod
-    def is_valid(cls, value):
+    def is_valid(cls, value: int) -> bool:
         "Returns true if the given value is a member of the CV"
         return value in cls.string
 
@@ -223,7 +233,7 @@ class LIS331:
     _hpf_enable_bit = RWBit(_LIS331_REG_CTRL2, 4)
     _hpf_cutoff = RWBits(2, _LIS331_REG_CTRL2, 0)
 
-    def __init__(self, i2c_bus, address=_LIS331_DEFAULT_ADDRESS):
+    def __init__(self, i2c_bus: I2C, address: int = _LIS331_DEFAULT_ADDRESS) -> None:
         if (not isinstance(self, LIS331HH)) and (not isinstance(self, H3LIS331)):
             raise RuntimeError(
                 "Base class LIS331 cannot be instantiated directly. Use LIS331HH or H3LIS331"
@@ -231,13 +241,13 @@ class LIS331:
         self.i2c_device = i2c_device.I2CDevice(i2c_bus, address)
         if self._chip_id != _LIS331_CHIP_ID:
             raise RuntimeError(
-                "Failed to find %s - check your wiring!" % self.__class__.__name__
+                f"Failed to find {self.__class__.__name__} - check your wiring!"
             )
         self._range_class = None
         self.enable_hpf(False)
 
     @property
-    def lpf_cutoff(self):
+    def lpf_cutoff(self) -> int:
         """The frequency above which signals will be filtered out"""
         if self.mode == Mode.NORMAL:  # pylint: disable=no-member
             raise RuntimeError(
@@ -246,7 +256,7 @@ class LIS331:
         return self._data_rate_lpf_bits
 
     @lpf_cutoff.setter
-    def lpf_cutoff(self, cutoff_freq):
+    def lpf_cutoff(self, cutoff_freq: int) -> None:
         if not Frequency.is_valid(cutoff_freq):
             raise AttributeError("lpf_cutoff must be a `Frequency`")
 
@@ -258,7 +268,7 @@ class LIS331:
         self._data_rate_lpf_bits = cutoff_freq
 
     @property
-    def hpf_reference(self):
+    def hpf_reference(self) -> int:
         """The reference value to offset measurements when using the High-pass filter. To use,
         ``use_reference`` must be set to true when enabling the high-pass filter. The value
         is a signed 8-bit number from -128 to 127. The value of each increment of 1 depends on the
@@ -281,12 +291,12 @@ class LIS331:
         return self._reference_value
 
     @hpf_reference.setter
-    def hpf_reference(self, reference_value):
+    def hpf_reference(self, reference_value: int) -> None:
         if reference_value < -128 or reference_value > 127:
             raise AttributeError("`hpf_reference` must be from -128 to 127")
         self._reference_value = reference_value
 
-    def zero_hpf(self):
+    def zero_hpf(self) -> None:
         """When the high-pass filter is enabled  with ``use_reference=False``,
         calling :meth:`zero_hpf` will set all measurements to zero immediately,
         avoiding the normal settling time seen when using the high-pass filter
@@ -294,9 +304,12 @@ class LIS331:
         """
         self._zero_hpf  # pylint: disable=pointless-statement
 
-    def enable_hpf(
-        self, enabled=True, cutoff=RateDivisor.ODR_DIV_50, use_reference=False
-    ):  # pylint: disable=no-member
+    def enable_hpf(  # pylint: disable=no-member
+        self,
+        enabled: bool = True,
+        cutoff: int = RateDivisor.ODR_DIV_50,
+        use_reference: bool = False,
+    ) -> None:
         """Enable or disable the high-pass filter.
 
         :param enabled: Enable or disable the filter. Default is `True` to enable
@@ -318,12 +331,12 @@ class LIS331:
         self._hpf_enable_bit = enabled
 
     @property
-    def data_rate(self):
+    def data_rate(self) -> float:
         """Select the rate at which the accelerometer takes measurements. Must be a ``Rate``"""
         return self._cached_data_rate
 
     @data_rate.setter
-    def data_rate(self, new_rate_bits):
+    def data_rate(self, new_rate_bits: float) -> None:
         if not Rate.is_valid(new_rate_bits):
             raise AttributeError("data_rate must be a `Rate`")
 
@@ -337,13 +350,13 @@ class LIS331:
         self._cached_data_rate = new_mode << 2 | new_rate_bits
 
     @property
-    def mode(self):
+    def mode(self) -> int:
         """The :attr:`Mode` power mode that the sensor is set to, as determined by the current
         `data_rate`. To set the mode, use `data_rate` and the appropriate ``Rate``"""
         mode_bits = self._mode_and_rate()[0]
         return mode_bits
 
-    def _mode_and_rate(self, data_rate=None):
+    def _mode_and_rate(self, data_rate: Optional[int] = None) -> Tuple[int, int]:
         if data_rate is None:
             data_rate = self._cached_data_rate
 
@@ -354,23 +367,21 @@ class LIS331:
         return (pm_value, dr_value)
 
     @property
-    def range(self):
+    def range(self) -> int:
         """Adjusts the range of values that the sensor can measure, Note that larger ranges will be
         less accurate. Must be a ``H3LIS331Range`` or ``LIS331HHRange``"""
         return self._range_bits
 
     @range.setter
-    def range(self, new_range):
+    def range(self, new_range: int) -> None:
         if not self._range_class.is_valid(new_range):  # pylint: disable=no-member
-            raise AttributeError(
-                "range must be a `%s`" % self._range_class.__qualname__
-            )
+            raise AttributeError(f"range must be a `{self._range_class.__qualname__}'")
         self._range_bits = new_range
         self._cached_accel_range = new_range
         sleep(0.010)  # give time for the new rate to settle
 
     @property
-    def acceleration(self):
+    def acceleration(self) -> Tuple[int, int, int]:
         """The x, y, z acceleration values returned in a 3-tuple and are in :math:`m / s ^ 2`."""
 
         raw_acceleration_bytes = self._raw_acceleration
@@ -381,7 +392,7 @@ class LIS331:
             self._scale_acceleration(raw_acceleration_bytes[2]),
         )
 
-    def _scale_acceleration(self, value):
+    def _scale_acceleration(self, value: int) -> int:
         # The measurements are 12 bits left justified to preserve the sign bit
         # so we'll shift them back to get the real value
         right_justified = value >> 4
@@ -420,7 +431,7 @@ class LIS331HH(LIS331):
 
     """
 
-    def __init__(self, i2c_bus, address=_LIS331_DEFAULT_ADDRESS):
+    def __init__(self, i2c_bus: I2C, address: int = _LIS331_DEFAULT_ADDRESS) -> None:
         # pylint: disable=no-member
         super().__init__(i2c_bus, address)
         self._range_class = LIS331HHRange
@@ -461,7 +472,7 @@ class H3LIS331(LIS331):
 
     """
 
-    def __init__(self, i2c_bus, address=_LIS331_DEFAULT_ADDRESS):
+    def __init__(self, i2c_bus: I2C, address: int = _LIS331_DEFAULT_ADDRESS) -> None:
         # pylint: disable=no-member
         super().__init__(i2c_bus, address)
         self._range_class = H3LIS331Range
