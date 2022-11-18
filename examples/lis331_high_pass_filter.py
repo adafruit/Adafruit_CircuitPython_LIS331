@@ -6,6 +6,7 @@ import board
 import adafruit_lis331
 
 i2c = board.I2C()  # uses board.SCL and board.SDA
+# i2c = board.STEMMA_I2C()  # For using the built-in STEMMA QT connector on a microcontroller
 # un-comment the sensor you are using
 # lis = H3LIS331(i2c)
 lis = adafruit_lis331.LIS331HH(i2c)
