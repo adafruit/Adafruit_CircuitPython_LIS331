@@ -81,7 +81,6 @@ class ROByteArray:
     def __init__(  # pylint: disable=too-many-arguments
         self, register_address: int, format_str: str, count: int
     ):
-
         self.buffer = bytearray(1 + count)
         self.buffer[0] = register_address
         self.format = format_str
