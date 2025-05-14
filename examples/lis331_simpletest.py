@@ -2,7 +2,9 @@
 # SPDX-License-Identifier: MIT
 
 import time
+
 import board
+
 import adafruit_lis331
 
 i2c = board.I2C()  # uses board.SCL and board.SDA
@@ -10,5 +12,7 @@ i2c = board.I2C()  # uses board.SCL and board.SDA
 lis = adafruit_lis331.LIS331HH(i2c)
 
 while True:
-    print("Acceleration : X: %.2f, Y:%.2f, Z:%.2f ms^2" % lis.acceleration)
+    print(
+        f"Acceleration : X: {lis.acceleration[0]:.2f}, Y:{lis.acceleration[1]:.2f}, Z:{lis.acceleration[2]:.2f} ms^2"
+    )
     time.sleep(0.1)

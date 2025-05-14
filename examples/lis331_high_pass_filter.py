@@ -2,7 +2,9 @@
 # SPDX-License-Identifier: MIT
 
 import time
+
 import board
+
 import adafruit_lis331
 
 i2c = board.I2C()  # uses board.SCL and board.SDA
@@ -15,9 +17,7 @@ lis = adafruit_lis331.LIS331HH(i2c)
 lis.data_rate = adafruit_lis331.Rate.RATE_1000_HZ
 
 # enable the high pass filter without a reference or offset
-lis.enable_hpf(
-    True, cutoff=adafruit_lis331.RateDivisor.ODR_DIV_100, use_reference=False
-)
+lis.enable_hpf(True, cutoff=adafruit_lis331.RateDivisor.ODR_DIV_100, use_reference=False)
 
 # you can also uncomment this section to set and use a reference to offset the measurements
 # lis.hpf_reference = 50

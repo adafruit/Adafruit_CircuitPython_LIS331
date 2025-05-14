@@ -32,13 +32,15 @@ __repo__ = "https://github.com/adafruit/Adafruit_CircuitPython_LIS331.git"
 
 from struct import unpack_from
 from time import sleep
-from adafruit_register.i2c_bits import RWBits
-from adafruit_register.i2c_bit import RWBit
-from adafruit_register.i2c_struct import UnaryStruct, ROUnaryStruct
+
 from adafruit_bus_device import i2c_device
+from adafruit_register.i2c_bit import RWBit
+from adafruit_register.i2c_bits import RWBits
+from adafruit_register.i2c_struct import ROUnaryStruct, UnaryStruct
 
 try:
     from typing import Iterable, Optional, Tuple, Type, Union
+
     from busio import I2C
 except ImportError:
     pass
@@ -78,16 +80,12 @@ class ROByteArray:
 
     """
 
-    def __init__(  # pylint: disable=too-many-arguments
-        self, register_address: int, format_str: str, count: int
-    ):
+    def __init__(self, register_address: int, format_str: str, count: int):
         self.buffer = bytearray(1 + count)
         self.buffer[0] = register_address
         self.format = format_str
 
-    def __get__(
-        self, obj: Optional["LIS331"], objtype: Optional[Type["LIS331"]] = None
-    ) -> int:
+    def __get__(self, obj: Optional["LIS331"], objtype: Optional[Type["LIS331"]] = None) -> int:
         with obj.i2c_device as i2c:
             i2c.write_then_readinto(self.buffer, self.buffer, out_end=1, in_start=1)
 
@@ -210,7 +208,6 @@ RateDivisor.add_values(
 
 
 class LIS331:
-    # pylint:disable=too-many-instance-attributes
     """Base class for the LIS331 family of 3-axis accelerometers.
     **Cannot be instantiated directly**
 
@@ -239,19 +236,15 @@ class LIS331:
             )
         self.i2c_device = i2c_device.I2CDevice(i2c_bus, address)
         if self._chip_id != _LIS331_CHIP_ID:
-            raise RuntimeError(
-                f"Failed to find {self.__class__.__name__} - check your wiring!"
-            )
+            raise RuntimeError(f"Failed to find {self.__class__.__name__} - check your wiring!")
         self._range_class = None
         self.enable_hpf(False)
 
     @property
     def lpf_cutoff(self) -> int:
         """The frequency above which signals will be filtered out"""
-        if self.mode == Mode.NORMAL:  # pylint: disable=no-member
-            raise RuntimeError(
-                "lpf_cuttoff cannot be read while a NORMAL data rate is in use"
-            )
+        if self.mode == Mode.NORMAL:
+            raise RuntimeError("lpf_cuttoff cannot be read while a NORMAL data rate is in use")
         return self._data_rate_lpf_bits
 
     @lpf_cutoff.setter
@@ -259,10 +252,8 @@ class LIS331:
         if not Frequency.is_valid(cutoff_freq):
             raise AttributeError("lpf_cutoff must be a `Frequency`")
 
-        if self.mode == Mode.NORMAL:  # pylint: disable=no-member
-            raise RuntimeError(
-                "lpf_cuttoff cannot be set while a NORMAL data rate is in use"
-            )
+        if self.mode == Mode.NORMAL:
+            raise RuntimeError("lpf_cuttoff cannot be set while a NORMAL data rate is in use")
 
         self._data_rate_lpf_bits = cutoff_freq
 
@@ -272,7 +263,6 @@ class LIS331:
         ``use_reference`` must be set to true when enabling the high-pass filter. The value
         is a signed 8-bit number from -128 to 127. The value of each increment of 1 depends on the
         currently set measurement range and is approximate:
-        #pylint: disable=line-too-long
 
         +-------------------------------------------------------------+-------------------------------+
         | Range                                                       | Incremental value (LSB value) |
@@ -284,7 +274,6 @@ class LIS331:
         | ``LIS331HHRange.RANGE_24G`` or ``H3LIS331Range.RANGE_400G`` | ~63mg                         |
         +-------------------------------------------------------------+-------------------------------+
 
-        #pylint: enable=line-too-long
         """
 
         return self._reference_value
@@ -301,9 +290,9 @@ class LIS331:
         avoiding the normal settling time seen when using the high-pass filter
         without a :meth:`hpf_reference`
         """
-        self._zero_hpf  # pylint: disable=pointless-statement
+        self._zero_hpf
 
-    def enable_hpf(  # pylint: disable=no-member
+    def enable_hpf(
         self,
         enabled: bool = True,
         cutoff: int = RateDivisor.ODR_DIV_50,
@@ -341,7 +330,7 @@ class LIS331:
 
         # to determine what to be set we'll look at the mode to so we don't overwrite the filter
         new_mode = self._mode_and_rate(new_rate_bits)[0]
-        if new_mode == Mode.NORMAL:  # pylint: disable=no-member
+        if new_mode == Mode.NORMAL:
             self._mode_and_odr_bits = new_rate_bits
         else:
             self._power_mode_bits = new_mode
@@ -361,7 +350,7 @@ class LIS331:
 
         pm_value = (data_rate & 0x1C) >> 2
         dr_value = data_rate & 0x3
-        if pm_value is Mode.LOW_POWER:  # pylint: disable=no-member
+        if pm_value is Mode.LOW_POWER:
             dr_value = 0
         return (pm_value, dr_value)
 
@@ -373,7 +362,7 @@ class LIS331:
 
     @range.setter
     def range(self, new_range: int) -> None:
-        if not self._range_class.is_valid(new_range):  # pylint: disable=no-member
+        if not self._range_class.is_valid(new_range):
             raise AttributeError(f"range must be a `{self._range_class.__qualname__}'")
         self._range_bits = new_range
         self._cached_accel_range = new_range
@@ -431,7 +420,6 @@ class LIS331HH(LIS331):
     """
 
     def __init__(self, i2c_bus: I2C, address: int = _LIS331_DEFAULT_ADDRESS) -> None:
-        # pylint: disable=no-member
         super().__init__(i2c_bus, address)
         self._range_class = LIS331HHRange
         self.data_rate = Rate.RATE_1000_HZ
@@ -472,7 +460,6 @@ class H3LIS331(LIS331):
     """
 
     def __init__(self, i2c_bus: I2C, address: int = _LIS331_DEFAULT_ADDRESS) -> None:
-        # pylint: disable=no-member
         super().__init__(i2c_bus, address)
         self._range_class = H3LIS331Range
         self.data_rate = Rate.RATE_1000_HZ
