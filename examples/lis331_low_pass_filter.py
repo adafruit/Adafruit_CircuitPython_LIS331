@@ -2,8 +2,10 @@
 # SPDX-License-Identifier: MIT
 
 import time
+
 import board
-from adafruit_lis331 import LIS331HH, Rate, Frequency
+
+from adafruit_lis331 import LIS331HH, Frequency, Rate
 
 i2c = board.I2C()  # uses board.SCL and board.SDA
 # i2c = board.STEMMA_I2C()  # For using the built-in STEMMA QT connector on a microcontroller
