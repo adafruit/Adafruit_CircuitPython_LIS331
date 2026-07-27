@@ -229,13 +229,15 @@ class LIS331:
     _hpf_enable_bit = RWBit(_LIS331_REG_CTRL2, 4)
     _hpf_cutoff = RWBits(2, _LIS331_REG_CTRL2, 0)
 
-    def __init__(self, i2c_bus: I2C, address: int = _LIS331_DEFAULT_ADDRESS) -> None:
+    def __init__(
+        self, i2c_bus: I2C, address: int = _LIS331_DEFAULT_ADDRESS, ignore_chip_id=False
+    ) -> None:
         if (not isinstance(self, LIS331HH)) and (not isinstance(self, H3LIS331)):
             raise RuntimeError(
                 "Base class LIS331 cannot be instantiated directly. Use LIS331HH or H3LIS331"
             )
         self.i2c_device = i2c_device.I2CDevice(i2c_bus, address)
-        if self._chip_id != _LIS331_CHIP_ID:
+        if self._chip_id != _LIS331_CHIP_ID and not ignore_chip_id:
             raise RuntimeError(f"Failed to find {self.__class__.__name__} - check your wiring!")
         self._range_class = None
         self.enable_hpf(False)
@@ -419,8 +421,10 @@ class LIS331HH(LIS331):
 
     """
 
-    def __init__(self, i2c_bus: I2C, address: int = _LIS331_DEFAULT_ADDRESS) -> None:
-        super().__init__(i2c_bus, address)
+    def __init__(
+        self, i2c_bus: I2C, address: int = _LIS331_DEFAULT_ADDRESS, ignore_chip_id=False
+    ) -> None:
+        super().__init__(i2c_bus, address, ignore_chip_id)
         self._range_class = LIS331HHRange
         self.data_rate = Rate.RATE_1000_HZ
         self.range = LIS331HHRange.RANGE_24G
@@ -459,8 +463,10 @@ class H3LIS331(LIS331):
 
     """
 
-    def __init__(self, i2c_bus: I2C, address: int = _LIS331_DEFAULT_ADDRESS) -> None:
-        super().__init__(i2c_bus, address)
+    def __init__(
+        self, i2c_bus: I2C, address: int = _LIS331_DEFAULT_ADDRESS, ignore_chip_id=False
+    ) -> None:
+        super().__init__(i2c_bus, address, ignore_chip_id)
         self._range_class = H3LIS331Range
         self.data_rate = Rate.RATE_1000_HZ
         self.range = H3LIS331Range.RANGE_400G
